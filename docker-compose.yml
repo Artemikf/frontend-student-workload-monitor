@@ -1,17 +1,13 @@
 services:
-  # Существующий бэкенд (пример из проекта)
   backend:
     build:
       context: .
-      dockerfile: student-workload-monitor/Dockerfile
+      dockerfile: student-workload-monitor/student-workload-monitor/Dockerfile
     ports:
       - "5000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-    volumes:
-      - ./student-workload-monitor:/app
 
-  # Новый сервис фронтенда
   frontend:
     build:
       context: ./client
