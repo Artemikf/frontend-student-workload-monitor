@@ -1,17 +1,22 @@
 services:
-  api:
+  # Существующий бэкенд (пример из проекта)
+  backend:
     build:
       context: .
       dockerfile: student-workload-monitor/Dockerfile
-    container_name: student-workload-api
     ports:
-      - "8080:8080"
+      - "5000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Data Source=/app/data/workload.db
     volumes:
-      - sqlite_data:/app/data
-    restart: unless-stopped
+      - ./student-workload-monitor:/app
 
-volumes:
-  sqlite_data:
+  # Новый сервис фронтенда
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
