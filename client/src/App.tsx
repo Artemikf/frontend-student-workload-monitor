@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Users, BookOpen, CheckSquare, BarChart2, ShieldAlert, Plus } from 'lucide-react';
-import { 
-  getStudents, createStudent, Student,
-  getSubjects, createSubject, Subject,
-  getAssignments, createAssignment, Assignment,
-  getWorkloadSummary, WorkloadForecast
+import {
+  getStudents,
+  createStudent,
+  Student,
+  getSubjects,
+  createSubject,
+  Subject,
+  getAssignments,
+  createAssignment,
+  Assignment,
+  getWorkloadSummary,
+  WorkloadForecast,
 } from './services/api';
 
 export default function App() {
@@ -18,19 +25,21 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Стани форм
-  const [newStudentName, setNewStudentName] = useState('');
+  // Форма додавання студента
+  const [newStudentFullName, setNewStudentFullName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
-  
+  const [newStudentGroup, setNewStudentGroup] = useState('');
+
+  // Форма додавання предмета
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectCredits, setNewSubjectCredits] = useState(3);
 
+  // Форма додавання завдання
   const [newAssignmentTitle, setNewAssignmentTitle] = useState('');
   const [newAssignmentSubjectId, setNewAssignmentSubjectId] = useState(1);
   const [newAssignmentHours, setNewAssignmentHours] = useState(5);
   const [newAssignmentDate, setNewAssignmentDate] = useState('');
 
-  // Завантаження даних при перемиканні вкладок
   useEffect(() => {
     fetchData();
   }, [activeTab]);
@@ -46,18 +55,17 @@ export default function App() {
         const res = await getSubjects();
         setSubjects(res.data);
       } else if (activeTab === 'assignments') {
-        const resAssign = await getAssignments();
-        const resSubj = await getSubjects();
+        const [resAssign, resSubj] = await Promise.all([getAssignments(), getSubjects()]);
         setAssignments(resAssign.data);
         setSubjects(resSubj.data);
-        if (resSubj.data.length > 0 && !newAssignmentSubjectId) {
+        if (resSubj.data.length > 0 && !resSubj.data.some((s) => s.id === newAssignmentSubjectId)) {
           setNewAssignmentSubjectId(resSubj.data[0].id);
         }
       } else if (activeTab === 'workload') {
         const res = await getWorkloadSummary();
         setWorkload(res.data);
       }
-    } catch (err: any) {
+    } catch {
       setError('Не вдалося завантажити дані з сервера. Перевірте, чи запущено бекенд API на порту 5000.');
     } finally {
       setLoading(false);
@@ -66,50 +74,57 @@ export default function App() {
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStudentName) return;
+    if (!newStudentFullName.trim()) return;
     try {
-      await createStudent({ name: newStudentName, email: newStudentEmail });
-      setNewStudentName('');
+      await createStudent({
+        fullName: newStudentFullName.trim(),
+        email: newStudentEmail.trim(),
+        academicGroup: newStudentGroup.trim(),
+      });
+      setNewStudentFullName('');
       setNewStudentEmail('');
+      setNewStudentGroup('');
       fetchData();
-    } catch (err) {
+    } catch {
       alert('Помилка під час додавання студента');
     }
   };
 
   const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSubjectName) return;
+    if (!newSubjectName.trim()) return;
     try {
-      await createSubject({ name: newSubjectName, credits: Number(newSubjectCredits) });
+      await createSubject({
+        name: newSubjectName.trim(),
+        credits: Number(newSubjectCredits),
+      });
       setNewSubjectName('');
       setNewSubjectCredits(3);
       fetchData();
-    } catch (err) {
-      alert('Помилка під час додавання предмета');
+    } catch {
+      alert('Помилка під час додавання дисципліни');
     }
   };
 
   const handleAddAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAssignmentTitle) return;
+    if (!newAssignmentTitle.trim()) return;
     try {
       await createAssignment({
-        title: newAssignmentTitle,
+        title: newAssignmentTitle.trim(),
         subjectId: Number(newAssignmentSubjectId),
         estimatedHours: Number(newAssignmentHours),
-        dueDate: newAssignmentDate || new Date().toISOString()
+        dueDate: newAssignmentDate || new Date().toISOString(),
       });
       setNewAssignmentTitle('');
       fetchData();
-    } catch (err) {
+    } catch {
       alert('Помилка під час додавання завдання');
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100">
-      {/* Шапка сайту */}
       <header className="bg-indigo-900 text-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-2">
           <div className="flex items-center space-x-3">
@@ -122,7 +137,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Навігаційна панель */}
       <nav className="bg-white shadow border-b overflow-x-auto">
         <div className="max-w-7xl mx-auto px-4 flex space-x-6 sm:space-x-8">
           <button
@@ -164,7 +178,6 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Основний контент */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg">
@@ -173,18 +186,25 @@ export default function App() {
         )}
 
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          {/* Вкладка: Студенти */}
           {activeTab === 'students' && (
             <div>
               <h2 className="text-2xl font-bold mb-6 text-gray-800">Управління студентами</h2>
-              
+
               <form onSubmit={handleAddStudent} className="mb-6 flex flex-col sm:flex-row gap-4 bg-gray-50 p-4 rounded-lg border">
                 <input
                   type="text"
                   placeholder="ПІБ студента"
-                  value={newStudentName}
-                  onChange={(e) => setNewStudentName(e.target.value)}
+                  value={newStudentFullName}
+                  onChange={(e) => setNewStudentFullName(e.target.value)}
                   className="border px-3 py-2 rounded-md flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Академічна група"
+                  value={newStudentGroup}
+                  onChange={(e) => setNewStudentGroup(e.target.value)}
+                  className="border px-3 py-2 rounded-md w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
@@ -194,18 +214,24 @@ export default function App() {
                   onChange={(e) => setNewStudentEmail(e.target.value)}
                   className="border px-3 py-2 rounded-md flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
-                <button type="submit" className="bg-indigo-600 text-white px-5 py-2 rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors">
+                <button
+                  type="submit"
+                  className="bg-indigo-600 text-white px-5 py-2 rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors"
+                >
                   <Plus className="w-4 h-4" /> Додати
                 </button>
               </form>
 
-              {loading ? <p className="text-gray-500">Завантаження списку студентів...</p> : (
+              {loading ? (
+                <p className="text-gray-500">Завантаження списку студентів...</p>
+              ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b bg-gray-100 text-gray-600 text-sm">
                         <th className="py-3 px-4">ID</th>
                         <th className="py-3 px-4">ПІБ студента</th>
+                        <th className="py-3 px-4">Група</th>
                         <th className="py-3 px-4">Електронна пошта</th>
                       </tr>
                     </thead>
@@ -213,12 +239,17 @@ export default function App() {
                       {students.map((s) => (
                         <tr key={s.id} className="border-b hover:bg-gray-50">
                           <td className="py-3 px-4 text-gray-500">{s.id}</td>
-                          <td className="py-3 px-4 font-medium text-gray-900">{s.name}</td>
+                          <td className="py-3 px-4 font-medium text-gray-900">{s.fullName}</td>
+                          <td className="py-3 px-4 text-gray-700">{s.academicGroup || '—'}</td>
                           <td className="py-3 px-4 text-gray-600">{s.email || '—'}</td>
                         </tr>
                       ))}
                       {students.length === 0 && (
-                        <tr><td colSpan={3} className="py-6 text-center text-gray-500">Список студентів наразі порожній</td></tr>
+                        <tr>
+                          <td colSpan={4} className="py-6 text-center text-gray-500">
+                            Список студентів наразі порожній
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
@@ -227,11 +258,10 @@ export default function App() {
             </div>
           )}
 
-          {/* Вкладка: Предмети */}
           {activeTab === 'subjects' && (
             <div>
               <h2 className="text-2xl font-bold mb-6 text-gray-800">Навчальні дисципліни</h2>
-              
+
               <form onSubmit={handleAddSubject} className="mb-6 flex flex-col sm:flex-row gap-4 bg-gray-50 p-4 rounded-lg border">
                 <input
                   type="text"
@@ -249,12 +279,17 @@ export default function App() {
                   className="border px-3 py-2 rounded-md w-full sm:w-40 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min={1}
                 />
-                <button type="submit" className="bg-indigo-600 text-white px-5 py-2 rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors">
+                <button
+                  type="submit"
+                  className="bg-indigo-600 text-white px-5 py-2 rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors"
+                >
                   <Plus className="w-4 h-4" /> Додати
                 </button>
               </form>
 
-              {loading ? <p className="text-gray-500">Завантаження дисциплін...</p> : (
+              {loading ? (
+                <p className="text-gray-500">Завантаження дисциплін...</p>
+              ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -273,7 +308,11 @@ export default function App() {
                         </tr>
                       ))}
                       {subjects.length === 0 && (
-                        <tr><td colSpan={3} className="py-6 text-center text-gray-500">Список дисциплін наразі порожній</td></tr>
+                        <tr>
+                          <td colSpan={3} className="py-6 text-center text-gray-500">
+                            Список дисциплін наразі порожній
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
@@ -282,11 +321,10 @@ export default function App() {
             </div>
           )}
 
-          {/* Вкладка: Завдання */}
           {activeTab === 'assignments' && (
             <div>
               <h2 className="text-2xl font-bold mb-6 text-gray-800">Завдання та дедлайни</h2>
-              
+
               <form onSubmit={handleAddAssignment} className="mb-6 flex flex-wrap gap-4 bg-gray-50 p-4 rounded-lg border">
                 <input
                   type="text"
@@ -302,8 +340,10 @@ export default function App() {
                   className="border px-3 py-2 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   {subjects.length === 0 && <option value={1}>Оберіть предмет</option>}
-                  {subjects.map(sub => (
-                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                  {subjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name}
+                    </option>
                   ))}
                 </select>
                 <input
@@ -321,12 +361,17 @@ export default function App() {
                   onChange={(e) => setNewAssignmentDate(e.target.value)}
                   className="border px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
-                <button type="submit" className="bg-indigo-600 text-white px-5 py-2 rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors">
+                <button
+                  type="submit"
+                  className="bg-indigo-600 text-white px-5 py-2 rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors"
+                >
                   <Plus className="w-4 h-4" /> Додати
                 </button>
               </form>
 
-              {loading ? <p className="text-gray-500">Завантаження завдань...</p> : (
+              {loading ? (
+                <p className="text-gray-500">Завантаження завдань...</p>
+              ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -349,7 +394,11 @@ export default function App() {
                         </tr>
                       ))}
                       {assignments.length === 0 && (
-                        <tr><td colSpan={5} className="py-6 text-center text-gray-500">Список завдань наразі порожній</td></tr>
+                        <tr>
+                          <td colSpan={5} className="py-6 text-center text-gray-500">
+                            Список завдань наразі порожній
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
@@ -358,16 +407,24 @@ export default function App() {
             </div>
           )}
 
-          {/* Вкладка: Аналіз навантаження */}
           {activeTab === 'workload' && (
             <div>
               <h2 className="text-2xl font-bold mb-2 text-gray-800">Моніторинг та прогноз навантаження</h2>
-              <p className="text-gray-600 mb-6">Аналітичні показники розраховуються автоматично на основі запланованих завдань та дедлайнів.</p>
+              <p className="text-gray-600 mb-6">
+                Аналітичні показники розраховуються автоматично на основі запланованих завдань та дедлайнів.
+              </p>
 
-              {loading ? <p className="text-gray-500">Завантаження прогнозів...</p> : (
+              {loading ? (
+                <p className="text-gray-500">Завантаження прогнозів...</p>
+              ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {workload.map((item, idx) => (
-                    <div key={idx} className={`p-5 rounded-xl border transition-shadow hover:shadow-md ${item.isOverloaded ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                    <div
+                      key={idx}
+                      className={`p-5 rounded-xl border transition-shadow hover:shadow-md ${
+                        item.isOverloaded ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'
+                      }`}
+                    >
                       <h3 className="font-bold text-lg text-gray-900">{item.studentName || `Студент #${item.studentId}`}</h3>
                       <p className="text-sm text-gray-700 mt-2">
                         Орієнтовне навантаження: <span className="font-semibold">{item.totalEstimatedHours} год.</span>
