@@ -25,20 +25,20 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Форма додавання студента
-  const [newStudentFullName, setNewStudentFullName] = useState('');
-  const [newStudentEmail, setNewStudentEmail] = useState('');
-  const [newStudentGroup, setNewStudentGroup] = useState('');
+  // Форма студента
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [academicGroup, setAcademicGroup] = useState('');
 
-  // Форма додавання предмета
-  const [newSubjectName, setNewSubjectName] = useState('');
-  const [newSubjectCredits, setNewSubjectCredits] = useState(3);
+  // Форма предмета
+  const [subjectName, setSubjectName] = useState('');
+  const [subjectCredits, setSubjectCredits] = useState(5);
 
-  // Форма додавання завдання
-  const [newAssignmentTitle, setNewAssignmentTitle] = useState('');
-  const [newAssignmentSubjectId, setNewAssignmentSubjectId] = useState(1);
-  const [newAssignmentHours, setNewAssignmentHours] = useState(5);
-  const [newAssignmentDate, setNewAssignmentDate] = useState('');
+  // Форма завдання
+  const [assignmentTitle, setAssignmentTitle] = useState('');
+  const [assignmentSubjectId, setAssignmentSubjectId] = useState<number>(1);
+  const [assignmentHours, setAssignmentHours] = useState<number>(4);
+  const [assignmentDate, setAssignmentDate] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -50,20 +50,22 @@ export default function App() {
     try {
       if (activeTab === 'students') {
         const res = await getStudents();
-        setStudents(res.data);
+        setStudents(Array.isArray(res.data) ? res.data : []);
       } else if (activeTab === 'subjects') {
         const res = await getSubjects();
-        setSubjects(res.data);
+        setSubjects(Array.isArray(res.data) ? res.data : []);
       } else if (activeTab === 'assignments') {
         const [resAssign, resSubj] = await Promise.all([getAssignments(), getSubjects()]);
-        setAssignments(resAssign.data);
-        setSubjects(resSubj.data);
-        if (resSubj.data.length > 0 && !resSubj.data.some((s) => s.id === newAssignmentSubjectId)) {
-          setNewAssignmentSubjectId(resSubj.data[0].id);
+        const assignList = Array.isArray(resAssign.data) ? resAssign.data : [];
+        const subjList = Array.isArray(resSubj.data) ? resSubj.data : [];
+        setAssignments(assignList);
+        setSubjects(subjList);
+        if (subjList.length > 0) {
+          setAssignmentSubjectId((prev) => (subjList.some((s) => s.id === prev) ? prev : subjList[0].id));
         }
       } else if (activeTab === 'workload') {
         const res = await getWorkloadSummary();
-        setWorkload(res.data);
+        setWorkload(Array.isArray(res.data) ? res.data : []);
       }
     } catch {
       setError('Не вдалося завантажити дані з сервера. Перевірте, чи запущено бекенд API на порту 5000.');
@@ -74,16 +76,16 @@ export default function App() {
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStudentFullName.trim()) return;
+    if (!fullName.trim() || !academicGroup.trim()) return;
     try {
       await createStudent({
-        fullName: newStudentFullName.trim(),
-        email: newStudentEmail.trim(),
-        academicGroup: newStudentGroup.trim(),
+        fullName: fullName.trim(),
+        email: email.trim(),
+        academicGroup: academicGroup.trim(),
       });
-      setNewStudentFullName('');
-      setNewStudentEmail('');
-      setNewStudentGroup('');
+      setFullName('');
+      setEmail('');
+      setAcademicGroup('');
       fetchData();
     } catch {
       alert('Помилка під час додавання студента');
@@ -92,14 +94,14 @@ export default function App() {
 
   const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSubjectName.trim()) return;
+    if (!subjectName.trim()) return;
     try {
       await createSubject({
-        name: newSubjectName.trim(),
-        credits: Number(newSubjectCredits),
+        name: subjectName.trim(),
+        credits: Number(subjectCredits),
       });
-      setNewSubjectName('');
-      setNewSubjectCredits(3);
+      setSubjectName('');
+      setSubjectCredits(5);
       fetchData();
     } catch {
       alert('Помилка під час додавання дисципліни');
@@ -108,15 +110,16 @@ export default function App() {
 
   const handleAddAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAssignmentTitle.trim()) return;
+    if (!assignmentTitle.trim()) return;
     try {
       await createAssignment({
-        title: newAssignmentTitle.trim(),
-        subjectId: Number(newAssignmentSubjectId),
-        estimatedHours: Number(newAssignmentHours),
-        dueDate: newAssignmentDate || new Date().toISOString(),
+        title: assignmentTitle.trim(),
+        subjectId: Number(assignmentSubjectId),
+        estimatedHours: Number(assignmentHours),
+        dueDate: assignmentDate ? new Date(assignmentDate).toISOString() : new Date().toISOString(),
       });
-      setNewAssignmentTitle('');
+      setAssignmentTitle('');
+      setAssignmentDate('');
       fetchData();
     } catch {
       alert('Помилка під час додавання завдання');
@@ -193,25 +196,25 @@ export default function App() {
               <form onSubmit={handleAddStudent} className="mb-6 flex flex-col sm:flex-row gap-4 bg-gray-50 p-4 rounded-lg border">
                 <input
                   type="text"
-                  placeholder="ПІБ студента"
-                  value={newStudentFullName}
-                  onChange={(e) => setNewStudentFullName(e.target.value)}
+                  placeholder="ПІБ / Ім'я студента"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   className="border px-3 py-2 rounded-md flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="text"
                   placeholder="Академічна група"
-                  value={newStudentGroup}
-                  onChange={(e) => setNewStudentGroup(e.target.value)}
+                  value={academicGroup}
+                  onChange={(e) => setAcademicGroup(e.target.value)}
                   className="border px-3 py-2 rounded-md w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="email"
                   placeholder="Електронна пошта (Email)"
-                  value={newStudentEmail}
-                  onChange={(e) => setNewStudentEmail(e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="border px-3 py-2 rounded-md flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <button
@@ -230,7 +233,7 @@ export default function App() {
                     <thead>
                       <tr className="border-b bg-gray-100 text-gray-600 text-sm">
                         <th className="py-3 px-4">ID</th>
-                        <th className="py-3 px-4">ПІБ студента</th>
+                        <th className="py-3 px-4">ПІБ / Ім'я</th>
                         <th className="py-3 px-4">Група</th>
                         <th className="py-3 px-4">Електронна пошта</th>
                       </tr>
@@ -266,16 +269,16 @@ export default function App() {
                 <input
                   type="text"
                   placeholder="Назва дисципліни"
-                  value={newSubjectName}
-                  onChange={(e) => setNewSubjectName(e.target.value)}
+                  value={subjectName}
+                  onChange={(e) => setSubjectName(e.target.value)}
                   className="border px-3 py-2 rounded-md flex-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <input
                   type="number"
                   placeholder="Кредити (ECTS)"
-                  value={newSubjectCredits}
-                  onChange={(e) => setNewSubjectCredits(Number(e.target.value))}
+                  value={subjectCredits}
+                  onChange={(e) => setSubjectCredits(Number(e.target.value))}
                   className="border px-3 py-2 rounded-md w-full sm:w-40 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min={1}
                 />
@@ -304,7 +307,7 @@ export default function App() {
                         <tr key={sub.id} className="border-b hover:bg-gray-50">
                           <td className="py-3 px-4 text-gray-500">{sub.id}</td>
                           <td className="py-3 px-4 font-medium text-gray-900">{sub.name}</td>
-                          <td className="py-3 px-4">{sub.credits}</td>
+                          <td className="py-3 px-4">{sub.credits ?? '—'}</td>
                         </tr>
                       ))}
                       {subjects.length === 0 && (
@@ -329,17 +332,17 @@ export default function App() {
                 <input
                   type="text"
                   placeholder="Назва завдання"
-                  value={newAssignmentTitle}
-                  onChange={(e) => setNewAssignmentTitle(e.target.value)}
+                  value={assignmentTitle}
+                  onChange={(e) => setAssignmentTitle(e.target.value)}
                   className="border px-3 py-2 rounded-md flex-1 min-w-[200px] focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
                 <select
-                  value={newAssignmentSubjectId}
-                  onChange={(e) => setNewAssignmentSubjectId(Number(e.target.value))}
+                  value={assignmentSubjectId}
+                  onChange={(e) => setAssignmentSubjectId(Number(e.target.value))}
                   className="border px-3 py-2 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {subjects.length === 0 && <option value={1}>Оберіть предмет</option>}
+                  {subjects.length === 0 && <option value={1}>Дисципліна #1</option>}
                   {subjects.map((sub) => (
                     <option key={sub.id} value={sub.id}>
                       {sub.name}
@@ -349,16 +352,15 @@ export default function App() {
                 <input
                   type="number"
                   placeholder="Години"
-                  title="Орієнтовні витрати часу (год.)"
-                  value={newAssignmentHours}
-                  onChange={(e) => setNewAssignmentHours(Number(e.target.value))}
+                  value={assignmentHours}
+                  onChange={(e) => setAssignmentHours(Number(e.target.value))}
                   className="border px-3 py-2 rounded-md w-28 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   min={1}
                 />
                 <input
                   type="date"
-                  value={newAssignmentDate}
-                  onChange={(e) => setNewAssignmentDate(e.target.value)}
+                  value={assignmentDate}
+                  onChange={(e) => setAssignmentDate(e.target.value)}
                   className="border px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <button
@@ -411,7 +413,7 @@ export default function App() {
             <div>
               <h2 className="text-2xl font-bold mb-2 text-gray-800">Моніторинг та прогноз навантаження</h2>
               <p className="text-gray-600 mb-6">
-                Аналітичні показники розраховуються автоматично на основі запланованих завдань та дедлайнів.
+                Аналітичні показники формуються на основі даних бекенд-сервісу.
               </p>
 
               {loading ? (
@@ -425,21 +427,27 @@ export default function App() {
                         item.isOverloaded ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'
                       }`}
                     >
-                      <h3 className="font-bold text-lg text-gray-900">{item.studentName || `Студент #${item.studentId}`}</h3>
-                      <p className="text-sm text-gray-700 mt-2">
-                        Орієнтовне навантаження: <span className="font-semibold">{item.totalEstimatedHours} год.</span>
-                      </p>
-                      <div className="mt-4">
-                        {item.isOverloaded ? (
-                          <span className="inline-block bg-red-200 text-red-900 text-xs px-3 py-1 rounded-full font-semibold">
-                            Критичне перевантаження!
-                          </span>
-                        ) : (
-                          <span className="inline-block bg-green-200 text-green-900 text-xs px-3 py-1 rounded-full font-semibold">
-                            Навантаження в нормі
-                          </span>
-                        )}
-                      </div>
+                      <h3 className="font-bold text-lg text-gray-900">
+                        {item.studentName || `Запис #${item.studentId ?? idx + 1}`}
+                      </h3>
+                      {typeof item.totalEstimatedHours === 'number' && (
+                        <p className="text-sm text-gray-700 mt-2">
+                          Орієнтовне навантаження: <span className="font-semibold">{item.totalEstimatedHours} год.</span>
+                        </p>
+                      )}
+                      {typeof item.isOverloaded === 'boolean' && (
+                        <div className="mt-4">
+                          {item.isOverloaded ? (
+                            <span className="inline-block bg-red-200 text-red-900 text-xs px-3 py-1 rounded-full font-semibold">
+                              Критичне перевантаження!
+                            </span>
+                          ) : (
+                            <span className="inline-block bg-green-200 text-green-900 text-xs px-3 py-1 rounded-full font-semibold">
+                              Навантаження в нормі
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {workload.length === 0 && (
